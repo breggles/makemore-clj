@@ -19,6 +19,8 @@
 (defonce c->i (-> (into {} (mapv vector characters (iterate inc 1)))
                   (assoc \. 0)))
 
+(defonce i->c (clojure.set/map-invert c->i))
+
 (defn assoc-counts [N [[c1 c2] cnt]]
   (assoc-in N [(c->i c1) (c->i c2)] cnt))
 
@@ -28,6 +30,12 @@
                              (repeat char-count)
                              (vec))]
              (reduce assoc-counts zeroes bigram->count)))
+
+(defn normalize-row [row]
+  (let [sum (apply + row)]
+    (->> (mapv #(/ % sum) row))))
+
+(defonce P (mapv normalize-row N))
 
 (defn index-greater-than [n prev k v]
   (let [curr (+ prev v)]
@@ -40,6 +48,13 @@
     (->> (mapv #(/ % sum) row)
          (reduce-kv (partial index-greater-than (rand)) 0))))
 
+(defn generate-name []
+  (->> (iterate #(pick-likely-index (nth N %)) 0)
+       (drop 1)
+       (take-while #(not= 0 %))
+       (map i->c)
+       (apply str)))
+
 (comment
 
   (defn neg [n] (* -1 n))
@@ -47,5 +62,10 @@
   (sort-by (comp neg last) bigram->count)
 
   (count (filter (partial = 0) (repeatedly 100 (fn [] (pick-likely-index [0.6 0.3 0.1])))))
+
+  (i->c (pick-likely-index (nth N 0)))
+
+  (repeatedly 10 generate-name)
+
 
   )
