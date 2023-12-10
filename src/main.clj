@@ -72,4 +72,12 @@
        (#(/ % (* 27 27)))
        )
 
+  (->> (keys bigram->count)
+       (take 10)
+       (mapv #(mapv c->i %))
+       (mapv (partial get-in P))
+       (mapv math/log)
+       (apply +)
+       (neg))
+
   )
