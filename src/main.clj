@@ -29,6 +29,16 @@
                              (vec))]
              (reduce assoc-counts zeroes bigram->count)))
 
+(defn index-greater-than [n prev k v]
+  (let [curr (+ prev v)]
+    (if (< n curr)
+      (reduced k)
+      curr)))
+
+(defn pick-likely-index [row]
+  (let [sum (apply + row)]
+    (->> (mapv #(/ % sum) row)
+         (reduce-kv (partial index-greater-than (rand)) 0))))
 
 (comment
 
@@ -36,7 +46,6 @@
 
   (sort-by (comp neg last) bigram->count)
 
-  (let [sum (apply + (nth N 0))]
-    (mapv #(/ % sum) (nth N 0)))
+  (count (filter (partial = 0) (repeatedly 100 (fn [] (pick-likely-index [0.6 0.3 0.1])))))
 
   )
