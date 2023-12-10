@@ -32,8 +32,8 @@
              (reduce assoc-counts zeroes bigram->count)))
 
 (defn normalize-row [row]
-  (let [sum (apply + row)]
-    (->> (mapv #(/ % sum) row))))
+  (let [row-sum (apply + row)]
+    (mapv #(/ % row-sum) row)))
 
 (defonce P (mapv normalize-row N))
 
@@ -44,12 +44,10 @@
       curr)))
 
 (defn pick-likely-index [row]
-  (let [sum (apply + row)]
-    (->> (mapv #(/ % sum) row)
-         (reduce-kv (partial index-greater-than (rand)) 0))))
+  (reduce-kv (partial index-greater-than (rand)) 0 row))
 
 (defn generate-name []
-  (->> (iterate #(pick-likely-index (nth N %)) 0)
+  (->> (iterate #(pick-likely-index (nth P %)) 0)
        (drop 1)
        (take-while #(not= 0 %))
        (map i->c)
@@ -63,9 +61,13 @@
 
   (count (filter (partial = 0) (repeatedly 100 (fn [] (pick-likely-index [0.6 0.3 0.1])))))
 
-  (i->c (pick-likely-index (nth N 0)))
+  (i->c (pick-likely-index (nth P 0)))
 
   (repeatedly 10 generate-name)
 
+  (->> (mapv #(mapv math/log %) P)
+       (flatten)
+       ; (apply +)
+       )
 
   )
