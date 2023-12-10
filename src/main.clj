@@ -25,7 +25,7 @@
   (assoc-in N [(c->i c1) (c->i c2)] cnt))
 
 (defonce N (let [char-count (count c->i)
-                 zeroes (->> (repeat char-count 0)
+                 zeroes (->> (repeat char-count 1)
                              (vec)
                              (repeat char-count)
                              (vec))]
@@ -53,9 +53,9 @@
        (map i->c)
        (apply str)))
 
-(comment
+(defn neg [n] (* -1 n))
 
-  (defn neg [n] (* -1 n))
+(comment
 
   (sort-by (comp neg last) bigram->count)
 
@@ -67,7 +67,9 @@
 
   (->> (mapv #(mapv math/log %) P)
        (flatten)
-       ; (apply +)
+       (apply +)
+       (neg)
+       (#(/ % (* 27 27)))
        )
 
   )
