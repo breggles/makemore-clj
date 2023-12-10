@@ -25,11 +25,11 @@
   (assoc-in N [(c->i c1) (c->i c2)] cnt))
 
 (defonce N (let [char-count (count c->i)
-                 zeroes (->> (repeat char-count 1)
-                             (vec)
-                             (repeat char-count)
-                             (vec))]
-             (reduce assoc-counts zeroes bigram->count)))
+                 init (->> (repeat char-count 1)
+                           (vec)
+                           (repeat char-count)
+                           (vec))]
+             (reduce assoc-counts init bigram->count)))
 
 (defn normalize-row [row]
   (let [row-sum (apply + row)]
@@ -55,6 +55,16 @@
 
 (defn neg [n] (* -1 n))
 
+(defn loss [& words]
+  (let [bgrms (mapcat bigrams words)]
+    (->> bgrms
+         (mapv #(mapv c->i %))
+         (mapv (partial get-in P))
+         (mapv math/log)
+         (apply +)
+         (neg)
+         (#(/ % (count bgrms))))))
+
 (comment
 
   (sort-by (comp neg last) bigram->count)
@@ -69,15 +79,12 @@
        (flatten)
        (apply +)
        (neg)
-       (#(/ % (* 27 27)))
-       )
+       (#(/ % (* 27 27))))
 
-  (->> (keys bigram->count)
-       (take 10)
-       (mapv #(mapv c->i %))
-       (mapv (partial get-in P))
-       (mapv math/log)
-       (apply +)
-       (neg))
+  (apply loss words)
+
+  (loss "andrej")
+
+  (loss "andrejq")
 
   )
