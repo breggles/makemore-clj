@@ -2,7 +2,10 @@
   (:require [clojure.string :as string]
             [clojure.math :as math]
             [clojure.pprint :as pprint]
-            [clojure.inspector :as insp]))
+            [clojure.inspector :as insp]
+            [micrograd :as mg]))
+
+(defn- debug [x] (print x) x)
 
 (defonce words (->> (slurp "./resources/names.txt")
                     (#(string/split % #"\n"))))
@@ -65,7 +68,54 @@
          (neg)
          (#(/ % (count bgrms))))))
 
+;; neural net
+
+(defn one-hot [size n]
+  (assoc (vec (repeat size 0)) n 1))
+
+(defn dot [v1 v2]
+  (apply + (map * v1 v2)))
+
+(defn transpose [m]
+  (apply map vector m))
+
+(defn matrix-mul [m1 m2]
+  (if (not= (count (first m1)) (count m2))
+    (throw (ex-info "Wrong dimensions")))
+  (->> (for [v1 m1 v2 (transpose m2)]
+         (dot v1 v2))
+       (partition (count (first m2)))
+       (map vec)
+       (vec)))
+
 (comment
+
+  (let [bgrms (mapcat bigrams (take 1 words))
+        neuron (vec (repeatedly 27 #(vector (- (rand 8) 4))))]
+    (->> bgrms
+         (mapv #(mapv c->i %))
+         (mapv first)
+         (mapv (partial one-hot 27))
+         (#(matrix-mul % neuron))
+         (pprint/pprint)
+         ))
+
+  (matrix-mul [[1 2] [3 4] [5 6]] [[1 2 3] [4 5 6]])
+
+  (matrix-mul [[1 2 3] [4 5 6]] [[1 2] [3 4] [5 6]])
+
+  (matrix-mul [[1 2]
+               [4 5]]
+              [[1 2]
+               [3 4]])
+
+  (transpose [[1 2 3] [4 5 6]])
+
+  (dot [1 2] [3 4])
+
+  (one-hot 27 13)
+
+  (mg/const 3)
 
   (sort-by (comp neg last) bigram->count)
 
