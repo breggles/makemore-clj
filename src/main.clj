@@ -70,35 +70,141 @@
 
 ;; neural net
 
-(defn one-hot [size n]
-  (assoc (vec (repeat size 0)) n 1))
+(defn mg-one-hot [size n]
+  (assoc (vec (repeat size (mg/const 0))) n (mg/const 1)))
 
-(defn dot [v1 v2]
-  (apply + (map * v1 v2)))
+(defn mg-dot [v1 v2]
+  (apply mg/add (map mg/mul v1 v2)))
 
 (defn transpose [m]
   (apply map vector m))
 
+(defn- dims [m]
+  ((juxt count (comp count first)) m))
+
 (defn matrix-mul [m1 m2]
-  (if (not= (count (first m1)) (count m2))
-    (throw (ex-info "Wrong dimensions")))
+  (when (not= (count (first m1)) (count m2))
+    (throw (ex-info "Wrong dimensions" {:dims-m1 (dims m1) :dims-m2 (dims m2)})))
   (->> (for [v1 m1 v2 (transpose m2)]
-         (dot v1 v2))
+         (mg-dot v1 v2))
        (partition (count (first m2)))
        (map vec)
        (vec)))
 
+(defn init-neurons [x y]
+  (vec
+    (repeatedly x
+                (fn []
+                  (vec
+                    (repeatedly y #(mg/const (- (rand 8) 4))))))))
+
+(defn matrix-map [f m]
+  (mapv #(mapv f %) m))
+
+(defn mg-normalize-row [row]
+  (let [row-sum (apply mg/add row)]
+    (mapv #(mg/div % row-sum) row)))
+
+(defn- shape [x]
+  (if (coll? x)
+    (vec (cons (count x) (shape (first x))))
+    []))
+
+(defn mg-exp [n]
+  (mg/pow (mg/const math/E) n))
+
+(defn bigram-indexes [words]
+  (->> words
+       (mapcat bigrams)
+       (mapv #(mapv c->i %))
+       transpose))
+
+(defn entries [coords probs]
+  (mapv (partial get-in probs)
+        coords))
+
+(defn actual-next-probs [ys probs]
+  (entries (mapv vector (range) ys)
+           probs))
+
+(defn mg-mean [xs]
+  (mg/div (apply mg/add xs)
+          (mg/const (count xs))))
+
+(defn mg-soft-max [xs]
+  (->> xs
+       (mapv mg/log)
+       (mg-mean)))
+
+(defn apply-inputs [neurons inputs]
+  (let [hots (mapv (partial mg-one-hot 27) inputs)]
+    (matrix-mul hots neurons)))
+
+(defn mg-loss [ys outputs]
+  (->> outputs
+       (matrix-map mg-exp)
+       (mapv mg-normalize-row)
+       (actual-next-probs ys)
+       (mg-soft-max)
+       (mg/neg)))
+
+
 (comment
 
+  (shape [[[1 2] [3 4]] [[5 6] [7 8]] [[5 6] [7 8]]])
+  (shape [[1 2] [3 4] [5 6]])
+  (shape [1 2])
+  (shape 3)
+
+  (def bgis (bigram-indexes (take 1 words)))
+
+  (def neurons (init-neurons 27 27))
+
+  (def loss
+    (->> (apply-inputs neurons (first bgis))
+         (mg-loss (second bgis))))
+
+  (def tmp-neurs (init-neurons 2 2))
+
+  (->>
+    (matrix-mul
+     (mapv (partial mg-one-hot 2) [0 1])
+     (init-neurons 2 2))
+    (matrix-map mg-exp)
+    (matrix-map mg/forward!)
+    (matrix-map mg/backward!)
+    ; (:grad*)
+    )
+
+  @(:val* (mg/forward! loss))
+
+  (mg/zero! loss)
+
+  (mg/backward! loss)
+
+  (second (first neurons))
+
+  (matrix-map #(when (not= 0 @(:grad* %)) (print %)) neurons)
+
   (let [bgrms (mapcat bigrams (take 1 words))
-        neuron (vec (repeatedly 27 #(vector (- (rand 8) 4))))]
+        neuron (vec
+                (repeatedly 27
+                            (fn []
+                              (vec
+                               (repeatedly 27 #(- (rand 8) 4))))))]
     (->> bgrms
          (mapv #(mapv c->i %))
          (mapv first)
          (mapv (partial one-hot 27))
          (#(matrix-mul % neuron))
-         (pprint/pprint)
+         (dims)
+         ; (pprint/pprint)
          ))
+
+  (try
+    (matrix-mul [[1 2] [3 4]] [[5 6]])
+    (catch RuntimeException e
+      (pprint/pprint e)))
 
   (matrix-mul [[1 2] [3 4] [5 6]] [[1 2 3] [4 5 6]])
 
