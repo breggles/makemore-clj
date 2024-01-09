@@ -74,7 +74,7 @@
   (assoc (vec (repeat size (mg/const 0))) n (mg/const 1)))
 
 (defn mg-dot [v1 v2]
-  (apply mg/add (map mg/mul v1 v2)))
+  (apply mg/add (mapv mg/mul v1 v2)))
 
 (defn transpose [m]
   (apply map vector m))
@@ -88,7 +88,7 @@
   (->> (for [v1 m1 v2 (transpose m2)]
          (mg-dot v1 v2))
        (partition (count (first m2)))
-       (map vec)
+       (mapv vec)
        (vec)))
 
 (defn init-neurons [x y]
@@ -110,8 +110,8 @@
     (vec (cons (count x) (shape (first x))))
     []))
 
-(defn mg-exp [n]
-  (mg/pow (mg/const math/E) n))
+(defn mg-exp [a]
+  (mg/exp a))
 
 (defn bigram-indexes [words]
   (->> words
@@ -151,6 +151,8 @@
 
 (comment
 
+  (pprint/pprint (mg/backward! (mg/forward! (mg-exp (mg-dot [(mg/const 1) (mg/const 2)] [(mg/const 3) (mg/const 4)])))))
+
   (shape [[[1 2] [3 4]] [[5 6] [7 8]] [[5 6] [7 8]]])
   (shape [[1 2] [3 4] [5 6]])
   (shape [1 2])
@@ -164,18 +166,6 @@
     (->> (apply-inputs neurons (first bgis))
          (mg-loss (second bgis))))
 
-  (def tmp-neurs (init-neurons 2 2))
-
-  (->>
-    (matrix-mul
-     (mapv (partial mg-one-hot 2) [0 1])
-     (init-neurons 2 2))
-    (matrix-map mg-exp)
-    (matrix-map mg/forward!)
-    (matrix-map mg/backward!)
-    ; (:grad*)
-    )
-
   @(:val* (mg/forward! loss))
 
   (mg/zero! loss)
@@ -186,6 +176,26 @@
 
   (matrix-map #(when (not= 0 @(:grad* %)) (print %)) neurons)
 
+  (def tmp-neurs (init-neurons 2 2))
+
+  (pprint/pprint tmp-neurs)
+
+  (range (count (:kids (mg/forward! (mg/exp (mg/const 3))))))
+
+  (mg/backward! (mg/forward! (mg/add (mg/const 1) (mg/const 2) (mg/const 3))))
+
+  (def a (->>
+    (matrix-mul
+     (mapv (partial mg-one-hot 2) [0 1])
+     tmp-neurs)
+    (matrix-map mg-exp)
+    (matrix-map mg/forward!)
+    (matrix-map mg/backward!)
+    ; (:grad*)
+    ; (pprint/pprint)
+    ))
+
+  (get-in (ffirst a) [:kids])
   (let [bgrms (mapcat bigrams (take 1 words))
         neuron (vec
                 (repeatedly 27
