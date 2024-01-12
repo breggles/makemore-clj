@@ -70,9 +70,6 @@
 
 ;; neural net
 
-(defn mg-one-hot [size n]
-  (assoc (vec (repeat size (mg/const 0))) n (mg/const 1)))
-
 (defn mg-dot [v1 v2]
   (apply mg/add (mapv mg/mul v1 v2)))
 
@@ -93,25 +90,18 @@
 
 (defn init-neurons [x y]
   (vec
-    (repeatedly x
-                (fn []
-                  (vec
-                    (repeatedly y #(mg/const (- (rand 8) 4))))))))
+   (repeatedly x
+               (fn []
+                 (vec
+                  (repeatedly y #(mg/const (- (rand 8) 4))))))))
 
 (defn matrix-map [f m]
   (mapv #(mapv f %) m))
-
-(defn mg-normalize-row [row]
-  (let [row-sum (apply mg/add row)]
-    (mapv #(mg/div % row-sum) row)))
 
 (defn- shape [x]
   (if (coll? x)
     (vec (cons (count x) (shape (first x))))
     []))
-
-(defn mg-exp [a]
-  (mg/exp a))
 
 (defn bigram-indexes [words]
   (->> words
@@ -127,23 +117,18 @@
   (entries (mapv vector (range) ys)
            probs))
 
-(defn mg-mean [xs]
-  (mg/div (apply mg/add xs)
-          (mg/const (count xs))))
-
 (defn mg-soft-max [xs]
-  (->> xs
-       (mapv mg/log)
-       (mg-mean)))
+  (->> (mapv mg/log xs)
+       (mg/mean)))
 
 (defn apply-inputs [neurons inputs]
-  (let [hots (mapv (partial mg-one-hot 27) inputs)]
+  (let [hots (mapv (partial mg/one-hot 27) inputs)]
     (matrix-mul hots neurons)))
 
 (defn mg-loss [ys outputs]
   (->> outputs
-       (matrix-map mg-exp)
-       (mapv mg-normalize-row)
+       (matrix-map mg/exp)
+       (mapv mg/normalize-row)
        (actual-next-probs ys)
        (mg-soft-max)
        (mg/neg)))
@@ -151,14 +136,14 @@
 
 (comment
 
-  (pprint/pprint (mg/backward! (mg/forward! (mg-exp (mg-dot [(mg/const 1) (mg/const 2)] [(mg/const 3) (mg/const 4)])))))
+  (pprint/pprint (mg/backward! (mg/forward! (mg/exp (mg-dot [(mg/const 1) (mg/const 2)] [(mg/const 3) (mg/const 4)])))))
 
   (shape [[[1 2] [3 4]] [[5 6] [7 8]] [[5 6] [7 8]]])
   (shape [[1 2] [3 4] [5 6]])
   (shape [1 2])
   (shape 3)
 
-  (def bgis (bigram-indexes (take 1 words)))
+  (def bgis (bigram-indexes (take 10 words)))
 
   (def neurons (init-neurons 27 27))
 
@@ -187,7 +172,13 @@
 
     @(:val* loss))
 
-  (def tmp-neurs (init-neurons 2 2))
+  (def r [] )
+
+  (def r (conj r @(:val* (ffirst neurons))))
+
+  (pprint/pprint (matrix-map (comp deref :grad*) neurons))
+
+  (def tmp-neurs (init-neurons 1 1))
 
   (pprint/pprint tmp-neurs)
 
@@ -197,9 +188,9 @@
 
   (def a (->>
     (matrix-mul
-     (mapv (partial mg-one-hot 2) [0 1])
-     tmp-neurs)
-    (matrix-map mg-exp)
+     (mapv (partial mg/one-hot 1) [0])
+     [[(mg/const 2)]])
+    (matrix-map mg/exp)
     (matrix-map mg/forward!)
     (matrix-map mg/backward!)
     ; (:grad*)
