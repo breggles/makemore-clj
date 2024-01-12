@@ -166,15 +166,26 @@
     (->> (apply-inputs neurons (first bgis))
          (mg-loss (second bgis))))
 
-  @(:val* (mg/forward! loss))
+  (do
+    (mg/forward! loss)
 
-  (mg/zero! loss)
+    @(:val* loss))
 
-  (mg/backward! loss)
+  (do
+    (mg/zero! loss)
 
-  (second (first neurons))
+    (mg/backward! loss)
 
-  (matrix-map #(when (not= 0 @(:grad* %)) (print %)) neurons)
+    (matrix-map
+     #(swap!
+       (:val* %)
+       (fn [curr-val grad] (+ curr-val (* -10 grad)))
+       @(:grad* %))
+     neurons)
+
+    (mg/forward! loss)
+
+    @(:val* loss))
 
   (def tmp-neurs (init-neurons 2 2))
 
